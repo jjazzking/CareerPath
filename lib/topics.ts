@@ -10,22 +10,22 @@ export interface TopicMeta {
   slug: string;
   title: string;
   status: Status;
-  summary: string; // 대시보드 카드에 보이는 1~2줄 요약
+  summary: string; // 대시보드 카드에 보이는 1~2줄 요약 (내 생각 첫 줄)
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  at: string;
+// 주제 하나가 담는 두 개의 문서
+export interface TopicDocs {
+  thoughts: string; // 내가 직접 쓰는 생각/논리
+  notes: string; // AI에게 받은 답변을 정리해 저장하는 곳
 }
 
 // 파일 경로 헬퍼
 const topicDir = (slug: string) => path.join(DATA_DIR, slug);
 const metaPath = (slug: string) => path.join(topicDir(slug), "meta.json");
-const messagesPath = (slug: string) => path.join(topicDir(slug), "messages.json");
-const memoryPath = (slug: string) => path.join(topicDir(slug), "ai_memory.md");
+const thoughtsPath = (slug: string) => path.join(topicDir(slug), "thoughts.md");
+const notesPath = (slug: string) => path.join(topicDir(slug), "notes.md");
 
 function slugify(title: string): string {
   const base = title
@@ -49,8 +49,7 @@ export async function listTopics(): Promise<TopicMeta[]> {
   for (const e of entries) {
     if (!e.isDirectory()) continue;
     try {
-      const raw = await fs.readFile(metaPath(e.name), "utf-8");
-      metas.push(JSON.parse(raw));
+      metas.push(JSON.parse(await fs.readFile(metaPath(e.name), "utf-8")));
     } catch {
       // meta 없는 폴더는 무시
     }
@@ -72,11 +71,8 @@ export async function createTopic(title: string): Promise<TopicMeta> {
   };
   await fs.mkdir(topicDir(slug), { recursive: true });
   await fs.writeFile(metaPath(slug), JSON.stringify(meta, null, 2));
-  await fs.writeFile(messagesPath(slug), JSON.stringify([], null, 2));
-  await fs.writeFile(
-    memoryPath(slug),
-    "# 이 주제에 대한 정리 (AI 기억)\n\n_아직 대화가 없습니다. 왼쪽에서 첫 메시지를 보내보세요._\n"
-  );
+  await fs.writeFile(thoughtsPath(slug), "");
+  await fs.writeFile(notesPath(slug), "");
   return meta;
 }
 
@@ -95,28 +91,35 @@ export async function updateMeta(slug: string, patch: Partial<TopicMeta>): Promi
   await fs.writeFile(metaPath(slug), JSON.stringify(next, null, 2));
 }
 
-export async function getMessages(slug: string): Promise<ChatMessage[]> {
-  try {
-    return JSON.parse(await fs.readFile(messagesPath(slug), "utf-8"));
-  } catch {
-    return [];
+export async function getDocs(slug: string): Promise<TopicDocs> {
+  const read = async (p: string) => {
+    try {
+      return await fs.readFile(p, "utf-8");
+    } catch {
+      return "";
+    }
+  };
+  const [thoughts, notes] = await Promise.all([
+    read(thoughtsPath(slug)),
+    read(notesPath(slug)),
+  ]);
+  return { thoughts, notes };
+}
+
+// thoughts / notes 중 전달된 것만 저장. summary(대시보드 요약)도 함께 갱신.
+export async function saveDocs(slug: string, patch: Partial<TopicDocs>): Promise<void> {
+  if (typeof patch.thoughts === "string") {
+    await fs.writeFile(thoughtsPath(slug), patch.thoughts);
   }
-}
-
-export async function appendMessages(slug: string, msgs: ChatMessage[]): Promise<void> {
-  const cur = await getMessages(slug);
-  const next = [...cur, ...msgs];
-  await fs.writeFile(messagesPath(slug), JSON.stringify(next, null, 2));
-}
-
-export async function getMemory(slug: string): Promise<string> {
-  try {
-    return await fs.readFile(memoryPath(slug), "utf-8");
-  } catch {
-    return "";
+  if (typeof patch.notes === "string") {
+    await fs.writeFile(notesPath(slug), patch.notes);
   }
-}
-
-export async function setMemory(slug: string, content: string): Promise<void> {
-  await fs.writeFile(memoryPath(slug), content);
+  // 요약 = 내 생각의 첫 비어있지 않은 줄
+  if (typeof patch.thoughts === "string") {
+    const firstLine =
+      patch.thoughts.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+    await updateMeta(slug, { summary: firstLine.slice(0, 120) });
+  } else {
+    await updateMeta(slug, {}); // updatedAt 갱신
+  }
 }
