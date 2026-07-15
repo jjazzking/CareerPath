@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { listTopics, createTopic, summarize, type Topic } from "@/lib/store";
+import { listTopics, createTopic, type Topic } from "@/lib/store";
 
 const STATUS_LABEL: Record<Topic["status"], string> = {
   exploring: "탐색중",
@@ -81,9 +81,9 @@ export default function Dashboard({
           {topics.map((t) => (
             <button key={t.id} className="card" onClick={() => onOpen(t.id)}>
               <h3>{t.title}</h3>
-              <div className="summary">{summarize(t.thoughts) || "아직 내용이 없습니다."}</div>
               <div className="meta">
                 <span className={`badge ${t.status}`}>{STATUS_LABEL[t.status]}</span>
+                <span>{t.entries.length}개 기록</span>
                 <span>{new Date(t.updated_at).toLocaleDateString("ko-KR")}</span>
               </div>
             </button>
