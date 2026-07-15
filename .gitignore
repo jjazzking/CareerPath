@@ -3,10 +3,7 @@ node_modules/
 out/
 build/
 
-# 개인 데이터(주제별 생각/대화)는 커밋하지 않는다
-/data/topics/
-
-# 로컬 환경 변수 (API 키)
+# 로컬 환경 변수 (Supabase 키)
 .env
 .env.local
 

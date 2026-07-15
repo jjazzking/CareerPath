@@ -1,82 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase, isConfigured } from "@/lib/supabase";
+import Auth from "@/components/Auth";
+import Dashboard from "@/components/Dashboard";
+import TopicDetail from "@/components/TopicDetail";
 
-interface TopicMeta {
-  slug: string;
-  title: string;
-  status: "exploring" | "onhold" | "concluded";
-  summary: string;
-  updatedAt: string;
-}
+export default function Home() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
-const STATUS_LABEL: Record<TopicMeta["status"], string> = {
-  exploring: "탐색중",
-  onhold: "보류",
-  concluded: "결론",
-};
-
-export default function Dashboard() {
-  const [topics, setTopics] = useState<TopicMeta[]>([]);
-  const [title, setTitle] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-
-  async function load() {
-    const res = await fetch("/api/topics");
-    setTopics(await res.json());
-    setLoading(false);
-  }
   useEffect(() => {
-    load();
+    if (!isConfigured) {
+      setReady(true);
+      return;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setCreating(true);
-    await fetch("/api/topics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    setTitle("");
-    setCreating(false);
-    load();
-  }
+  if (!isConfigured) return <ConfigNeeded />;
+  if (!ready) return <p className="empty">불러오는 중…</p>;
+  if (!session) return <Auth />;
 
+  return openId ? (
+    <TopicDetail id={openId} onBack={() => setOpenId(null)} />
+  ) : (
+    <Dashboard email={session.user.email ?? ""} onOpen={setOpenId} />
+  );
+}
+
+function ConfigNeeded() {
   return (
-    <div>
-      <div className="dash-head">
-        <h1>커리어 주제</h1>
-        <form className="new-form" onSubmit={create}>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="새 주제 (예: 지금 이직할까?)"
-          />
-          <button disabled={creating || !title.trim()}>추가</button>
-        </form>
+    <div className="auth">
+      <h1>CareerPath</h1>
+      <div className="auth-card">
+        <p>Supabase 설정이 아직 없습니다.</p>
+        <p className="muted">
+          <code>NEXT_PUBLIC_SUPABASE_URL</code> 과 <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> 를
+          설정한 뒤 다시 빌드하세요. (자세한 방법: <code>SETUP.md</code>)
+        </p>
       </div>
-
-      {loading ? (
-        <p className="empty">불러오는 중…</p>
-      ) : topics.length === 0 ? (
-        <p className="empty">아직 주제가 없습니다. 위에서 첫 주제를 추가해 보세요.</p>
-      ) : (
-        <div className="grid">
-          {topics.map((t) => (
-            <a key={t.slug} href={`/topics/${t.slug}`} className="card">
-              <h3>{t.title}</h3>
-              <div className="summary">{t.summary || "아직 대화가 없습니다."}</div>
-              <div className="meta">
-                <span className={`badge ${t.status}`}>{STATUS_LABEL[t.status]}</span>
-                <span>{new Date(t.updatedAt).toLocaleDateString("ko-KR")}</span>
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -1,20 +1,12 @@
 "use client";
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
-
-interface TopicMeta {
-  slug: string;
-  title: string;
-  status: "exploring" | "onhold" | "concluded";
-}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getTopic, updateTopic, type Topic, type Status } from "@/lib/store";
 
 // 클립보드로 복사할 프롬프트를 조립한다.
 function buildPrompt(title: string, thoughts: string, notes: string): string {
-  const parts = [`# 커리어 주제: ${title}`, ""];
-  parts.push("## 지금까지 내 생각", thoughts.trim() || "(아직 없음)", "");
-  if (notes.trim()) {
-    parts.push("## 이전에 정리해둔 것", notes.trim(), "");
-  }
+  const parts = [`# 커리어 주제: ${title}`, "", "## 지금까지 내 생각", thoughts.trim() || "(아직 없음)", ""];
+  if (notes.trim()) parts.push("## 이전에 정리해둔 것", notes.trim(), "");
   parts.push(
     "---",
     "위 내용을 바탕으로 내 생각을 발전시켜줘. 논리의 강점과 빈틈, 놓친 관점이나 반론, 그리고 다음에 탐색하면 좋을 질문을 짚어줘."
@@ -22,44 +14,35 @@ function buildPrompt(title: string, thoughts: string, notes: string): string {
   return parts.join("\n");
 }
 
-export default function TopicPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-
-  const [meta, setMeta] = useState<TopicMeta | null>(null);
+export default function TopicDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const [topic, setTopic] = useState<Topic | null>(null);
   const [thoughts, setThoughts] = useState("");
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(true);
   const [copied, setCopied] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loaded = useRef(false);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/topics/${slug}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setMeta(data.meta);
-      setThoughts(data.thoughts);
-      setNotes(data.notes);
-      loaded.current = true;
+      const t = await getTopic(id);
+      if (t) {
+        setTopic(t);
+        setThoughts(t.thoughts);
+        setNotes(t.notes);
+      }
     })();
-  }, [slug]);
+  }, [id]);
 
-  // 변경 시 디바운스 자동 저장
   const scheduleSave = useCallback(
-    (next: { thoughts?: string; notes?: string }) => {
+    (patch: Partial<Pick<Topic, "thoughts" | "notes">>) => {
       setSaved(false);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
-        await fetch(`/api/topics/${slug}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
+        await updateTopic(id, patch);
         setSaved(true);
       }, 700);
     },
-    [slug]
+    [id]
   );
 
   function onThoughts(v: string) {
@@ -72,11 +55,10 @@ export default function TopicPage({ params }: { params: Promise<{ slug: string }
   }
 
   async function copyPrompt() {
-    const prompt = buildPrompt(meta?.title ?? "", thoughts, notes);
+    const prompt = buildPrompt(topic?.title ?? "", thoughts, notes);
     try {
       await navigator.clipboard.writeText(prompt);
     } catch {
-      // 클립보드 권한이 없을 때 대비: 임시 textarea로 복사
       const ta = document.createElement("textarea");
       ta.value = prompt;
       document.body.appendChild(ta);
@@ -88,20 +70,18 @@ export default function TopicPage({ params }: { params: Promise<{ slug: string }
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function setStatus(status: TopicMeta["status"]) {
-    await fetch(`/api/topics/${slug}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    setMeta((m) => (m ? { ...m, status } : m));
+  async function setStatus(status: Status) {
+    await updateTopic(id, { status });
+    setTopic((t) => (t ? { ...t, status } : t));
   }
 
   return (
     <div>
-      <a href="/" className="back">← 주제 목록</a>
+      <button className="back" onClick={onBack}>
+        ← 주제 목록
+      </button>
       <div className="topic-head">
-        <h1 className="topic-title">{meta?.title ?? "…"}</h1>
+        <h1 className="topic-title">{topic?.title ?? "…"}</h1>
         <span className="save-state">{saved ? "저장됨" : "저장 중…"}</span>
       </div>
 
@@ -141,7 +121,7 @@ export default function TopicPage({ params }: { params: Promise<{ slug: string }
                 key={s}
                 className="ghost"
                 onClick={() => setStatus(s)}
-                style={{ fontWeight: meta?.status === s ? 700 : 400 }}
+                style={{ fontWeight: topic?.status === s ? 700 : 400 }}
               >
                 {s === "exploring" ? "탐색중" : s === "onhold" ? "보류" : "결론"}
               </button>
