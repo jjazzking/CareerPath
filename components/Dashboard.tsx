@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { listTopics, createTopic, type Topic } from "@/lib/store";
 
 const STATUS_LABEL: Record<Topic["status"], string> = {
@@ -10,13 +9,7 @@ const STATUS_LABEL: Record<Topic["status"], string> = {
   concluded: "결론",
 };
 
-export default function Dashboard({
-  email,
-  onOpen,
-}: {
-  email: string;
-  onOpen: (id: string) => void;
-}) {
+export default function Dashboard({ onOpen }: { onOpen: (id: string) => void }) {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
@@ -54,12 +47,6 @@ export default function Dashboard({
     <div>
       <div className="dash-head">
         <h1>커리어 주제</h1>
-        <div className="dash-right">
-          <span className="muted small">{email}</span>
-          <button className="ghost" onClick={() => supabase.auth.signOut()}>
-            로그아웃
-          </button>
-        </div>
       </div>
 
       <form className="new-form wide" onSubmit={create}>
