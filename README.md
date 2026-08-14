@@ -10,16 +10,17 @@
 ## 구성
 
 - **프론트엔드**: Next.js 정적 빌드 → **GitHub Pages** 무료 호스팅
-- **저장/인증**: **Supabase** (이메일 매직 링크 로그인, 행 수준 보안으로 내 데이터는 나만 접근)
-- 주제 하나 = DB의 한 행: `title`, `status`, `thoughts`(내 생각), `notes`(정리)
+- **저장**: **Supabase** (로그인 없는 공개 모드 — 개인용 단일 데이터셋)
+- 주제 하나 = DB의 한 행: `title`, `status`, `entries`(내 생각/AI 답변이 순서대로 쌓이는 스레드)
+
+> ⚠️ 공개 모드다. 사이트 주소를 아는 사람은 누구나 데이터를 읽고 수정할 수 있다. 주소를 널리 퍼뜨리지 말 것.
 
 ## 사용 흐름
 
-1. 이메일로 로그인 (기기마다 한 번)
-2. 주제 추가 → 클릭
-3. 왼쪽 **내 생각** 적기 (자동 저장)
-4. **[프롬프트 복사]** → claude.ai에 붙여넣기
-5. 받은 답을 오른쪽 **정리** 칸에 붙여넣고 저장
+1. (로그인 없음) 대시보드에서 주제 추가 → 클릭
+2. 하단에서 **내 생각** 적어 추가
+3. **[프롬프트 복사]** → 지금까지 흐름 전체가 복사됨 → claude.ai에 붙여넣기
+4. 받은 답을 **AI 답변**으로 추가 → 다음 생각으로 꼬리에 꼬리를 물고 이어가기
 
 ## 설치 & 배포
 
@@ -37,15 +38,14 @@ npm run dev                        # http://localhost:3000
 
 ```
 app/
-  page.tsx              # SPA 진입점: 로그인 게이트 → 대시보드/주제 상세 전환
+  page.tsx              # SPA 진입점: 대시보드 ↔ 주제 상세 전환
 components/
-  Auth.tsx              # 이메일 매직 링크 로그인
-  Dashboard.tsx         # 주제 카드 그리드 + 생성
-  TopicDetail.tsx       # 내 생각/정리 편집 + 프롬프트 복사
+  Dashboard.tsx         # 주제 카드 그리드(제목만) + 생성
+  TopicDetail.tsx       # 스레드(내 생각/AI 답변) + 프롬프트 복사
 lib/
   supabase.ts           # Supabase 클라이언트
   store.ts              # 주제 CRUD (Supabase 직접 호출)
-supabase/schema.sql     # 테이블 + RLS 정책 (한 번 실행)
+supabase/schema.sql     # 테이블 + 공개 접근 정책 (한 번 실행)
 .github/workflows/      # GitHub Pages 자동 배포
 ```
 

@@ -15,13 +15,9 @@
    - **Project URL** (예: `https://abcd.supabase.co`)
    - **anon public** key (`eyJ...` 로 시작하는 긴 문자열)
 
-> anon key는 공개돼도 안전하다 — RLS + 로그인으로 데이터가 보호되기 때문. 그래서 브라우저에 노출돼도 된다.
-
-### 로그인 리다이렉트 허용 등록
-
-Supabase → **Authentication → URL Configuration**:
-- **Site URL** 에 배포 주소 입력: `https://<너의깃허브아이디>.github.io/CareerPath/`
-- **Redirect URLs** 에도 같은 주소 추가 (로컬 테스트하려면 `http://localhost:3000` 도 추가)
+> ⚠️ **공개 모드**: 이 앱은 로그인이 없다. 스키마의 정책이 anon 키로 전체 접근을 허용하므로,
+> **사이트 주소를 아는 사람은 누구나 데이터를 읽고 수정할 수 있다.** 개인용 단일 데이터셋 전제다.
+> (주소를 널리 퍼뜨리지 말 것. 나중에 비공개가 필요하면 로그인 방식으로 되돌릴 수 있다.)
 
 ---
 
@@ -33,7 +29,7 @@ npm install
 npm run dev                        # http://localhost:3000
 ```
 
-이메일 입력 → 받은 링크 클릭 → 로그인 → 주제 만들고 저장이 되는지 확인.
+로그인 없이 바로 대시보드가 뜨고, 주제를 만들고 저장이 되는지 확인.
 
 ---
 
